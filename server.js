@@ -25,10 +25,7 @@ const fetchData = async () => {
     const db = new sqlite3.Database(dbPath);
 
     db.serialize(() => {
-      const sql = db.prepare(`
-        INSERT INTO pogoda (id_stacji, stacja, temperatura, predkosc_wiatru, cisnienie)
-        VALUES (?,?,?,?,?)
-      `);
+      const sql = db.prepare(`INSERT INTO pogoda (id_stacji, stacja, temperatura, predkosc_wiatru, cisnienie)VALUES (?,?,?,?,?)`);
 
       data.forEach((row) => {
         const { id_stacji, stacja, temperatura, predkosc_wiatru, cisnienie } = row;

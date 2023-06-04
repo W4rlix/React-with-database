@@ -1,5 +1,4 @@
 const fs = require('fs');
-const path = require('path');
 const express = require('express');
 const sqlite3 = require('sqlite3').verbose();
 const https = require('https');
@@ -9,71 +8,50 @@ const dbPath = 'weather.db';
 const port = 5000;
 
 const app = express();
+app.use(cors());
 
-app.use(cors()); 
+const databaseExists = fs.existsSync(dbPath);
 
-if (!fs.existsSync(dbPath)) {
+if (!databaseExists) {
   const db = new sqlite3.Database(dbPath);
 
-  db.serialize(() => {
-    db.run(
-      'CREATE TABLE IF NOT EXISTS pogoda (id INTEGER PRIMARY KEY AUTOINCREMENT, id_stacji INTEGER, stacja TEXT, temperatura REAL, predkosc_wiatru REAL, cisnienie REAL)'
-    );
+  db.run(`CREATE TABLE IF NOT EXISTS pogoda (id INTEGER PRIMARY KEY AUTOINCREMENT,id_stacji INTEGER,stacja TEXT,temperatura REAL,predkosc_wiatru REAL,cisnienie REAL)`);
 
-    db.close();
-  });
+  db.close();
 }
 
-const WorkOnData = () => {
-  const req = https.request(
-    {
-      hostname: 'danepubliczne.imgw.pl',
-      path: '/api/data/synop',
-      method: 'GET'
-    },
-    (res) => {
-      let data = '';
-      res.on('data', (chunk) => {
-        data += chunk;
-      });
+const fetchData = () => {
+  https.get('https://danepubliczne.imgw.pl/api/data/synop', (res) => {
+    let data = '';
 
-      res.on('end', () => {
-        const WeatherData = JSON.parse(data);
+    res.on('data', (chunk) => {
+      data += chunk;
+    });
 
-        const db = new sqlite3.Database(dbPath);
+    res.on('end', () => {
+      const db = new sqlite3.Database(dbPath);
 
-        db.serialize(() => {
-          const sql = db.prepare(
-            'INSERT INTO pogoda (id_stacji, stacja, temperatura, predkosc_wiatru, cisnienie) VALUES (?,?,?,?,?)'
-          );
+      db.serialize(() => {
+        const sql = db.prepare(`
+          INSERT INTO pogoda (id_stacji, stacja, temperatura, predkosc_wiatru, cisnienie)
+          VALUES (?,?,?,?,?)
+        `);
 
-          WeatherData.forEach((item) => {
-            const { id_stacji, stacja, temperatura, predkosc_wiatru, cisnienie } = item;
-            sql.run(id_stacji, stacja, temperatura, predkosc_wiatru, cisnienie);
-          });
-
-          sql.finalize();
-          console.log('Dane zapisane do bazy danych');
-
-          db.close();
+        JSON.parse(data).forEach((row) => {
+          const { id_stacji, stacja, temperatura, predkosc_wiatru, cisnienie } = row;
+          sql.run(id_stacji, stacja, temperatura, predkosc_wiatru, cisnienie);
         });
-      });
-    }
-  );
 
-  req.on('error', (error) => {
+        sql.finalize();
+        console.log('Dane zapisane do bazy danych');
+
+        db.close();
+      });
+    });
+  }).on('error', (error) => {
     console.error('Wystąpił błąd podczas pobierania danych:', error);
   });
-
-  req.end();
 };
-
-app.use(express.static(path.join(__dirname, '..', 'frontend', 'build')));
-
-
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'frontend', 'build', 'index.html'));
-});
 
 app.get('/data', (req, res) => {
   const db = new sqlite3.Database(dbPath);
@@ -88,18 +66,14 @@ app.get('/data', (req, res) => {
   });
 });
 
-const databaseExists = fs.existsSync(dbPath);
-
-
 if (databaseExists) {
-  console.log("Ta baza danych już istnieje");
-  app.listen(port, () => {
-    console.log(`Serwer nasłuchuje na porcie ${port}`);
-  });
-} else {
-  WorkOnData();
-  app.listen(port, () => {
-    console.log(`Serwer nasłuchuje na porcie ${port}`);
-  });
-} 
+  console.log('Ta baza danych już istnieje');
+}
 
+app.listen(port, () => {
+  console.log(`Serwer nasłuchuje na porcie ${port}`);
+});
+
+if (!databaseExists) {
+  fetchData();
+}

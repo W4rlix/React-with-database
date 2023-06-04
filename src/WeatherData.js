@@ -28,7 +28,7 @@ const WeatherData = () => {
 
   return (
     <div>
-      <h2>Weather Data</h2>
+      <h2>Baza Stacji Meteorologicznych</h2>
       <input type="text" placeholder="Filtruj przez stacje" value={filter} onChange={handleFilterChange} />
       <table>
         <thead>

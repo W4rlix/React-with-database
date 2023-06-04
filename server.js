@@ -55,14 +55,12 @@ app.get('/data', (req, res) => {
   });
 });
 
-if (databaseExists) {
-  console.log('Ta baza danych już istnieje');
-}
-
 app.listen(port, () => {
   console.log(`Serwer nasłuchuje na porcie ${port}`);
 });
 
 if (!databaseExists) {
   fetchData();
+}else{
+  console.log('Ta baza danych już istnieje');
 }
